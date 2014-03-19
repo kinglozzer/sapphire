@@ -28,6 +28,7 @@ class DevelopmentAdmin extends Controller {
 		'viewcode',
 		'generatesecuretoken',
 		'buildDefaults',
+		'configdebug'
 	);
 	
 	public function init() {
@@ -86,7 +87,8 @@ class DevelopmentAdmin extends Controller {
 			"tests/all" => "Run all tests",
 			"jstests" => "See a list of JavaScript tests to run",
 			"jstests/all" => "Run all JavaScript tests",
-			"tasks" => "See a list of build tasks to run"
+			"tasks" => "See a list of build tasks to run",
+			"configdebug" => "See the finalized YAML config"
 		);
 		
 		// Web mode
@@ -200,6 +202,49 @@ class DevelopmentAdmin extends Controller {
 			echo "Security:\n";
 			echo "  token: $token\n";
 		}
+	}
+
+	/**
+	 * Generate a 'debug' view of the finalized YAML configuration.
+	 */
+	public function configdebug() {
+		$configManifest = new SS_ConfigManifest(BASE_PATH, false, true);
+		
+		$renderer = DebugView::create();
+		$renderer->writeHeader();
+		$renderer->writeInfo("SilverStripe Development Tools", Director::absoluteBaseURL());
+		
+		echo $this->parseConfig($configManifest->yamlConfig);
+
+		$renderer->writeFooter();
+	}
+
+	/**
+	 * Build a view of YAML config
+	 * @return string
+	 */
+	protected function parseConfig($input) {
+		include_once 'thirdparty/zend_translate_railsyaml/library/Translate/Adapter/thirdparty/sfYaml/lib/'
+			. 'sfYamlInline.php';
+
+		$output = '';
+		if(is_array($input) && ! empty($input)) {
+			$output .= '<ul>';
+			$isAHash = array_keys($input) !== range(0, count($input) - 1);
+
+			foreach($input as $key => $val) {
+				$output .= '<li>';
+				$output .= ($isAHash) ? sfYamlInline::dump($key) . ': ' : '- ';
+				$output .= $this->parseConfig($val);
+				$output .= '</li>';
+			}
+
+			$output .= '</ul>';
+		} else {
+			$output .= sfYamlInline::dump($input);
+		}
+		
+		return $output;
 	}
 
 	public function errors() {
