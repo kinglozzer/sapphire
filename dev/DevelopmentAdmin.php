@@ -216,6 +216,34 @@ class DevelopmentAdmin extends Controller {
 		
 		echo $this->parseConfig($configManifest->yamlConfig);
 
+		$jQuery = Director::absoluteBaseURL() . THIRDPARTY_DIR . '/jquery/jquery.js';
+		echo "<script type=\"text/javascript\" src=\"$jQuery\"></script>";
+		echo "<script type=\"text/javascript\">";
+		echo <<<JS
+$(function() {
+	// Hide nested lists
+	$("ul ul").hide();
+
+	var handle = $("<span>+</span>").css({
+		display: 'inline-block',
+		width: '27px',
+		textAlign: 'center',
+		cursor: 'pointer',
+		fontWeight: 'bold'
+	});
+	
+	$("ul li:has(ul)").prepend(handle).css({listStyleType: 'none'});
+	$("ul li").not(":has(ul)").css({margin: '0 0 0 27px'});
+
+	$("ul li:has(ul)").children(":first-child").click(function() {
+		var self = $(this);
+
+		self.siblings("ul").toggle();
+		self.text((self.text() === '+') ? '-' : '+');
+	});
+});
+JS;
+		echo "</script>";
 		$renderer->writeFooter();
 	}
 
