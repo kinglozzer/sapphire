@@ -62,7 +62,7 @@ JavaScript in a separate file and instead load, via search and replace, several 
 	    "EditorCSS" => "cms/css/editor.css",
 	);
 
-	Requirements::javascriptTemplate("cms/javascript/editor.template.js", $vars);
+	Requirements::javascript_template("cms/javascript/editor.template.js", $vars);
 
 In this example, `editor.template.js` is expected to contain a replaceable variable expressed as `$EditorCSS`.
 
@@ -74,12 +74,12 @@ this is generally speaking the best way to do these things - it clearly marks th
 language.
 
 	:::php
-	Requirements::customScript(<<<JS
+	Requirements::custom_script(<<<JS
 	  alert("hi there");
 	JS
 	);
 
-	Requirements::customCSS(<<<CSS
+	Requirements::custom_css(<<<CSS
 	  .tree li.$className {
 	    background-image: url($icon);
 	  }
@@ -186,6 +186,13 @@ already loaded, then, it's inserted before the first `<script>` tag. If this cau
 `Requirements.force_js_to_bottom`, will force SilverStripe to write the Javascript to the bottom of the page body, even 
 if there is an earlier script tag.
 
+## Extending / Customising
+The `Requirements` class is essentially a convenience “front end” for a class named `RequirementsHandler`, which handles the actual tracking and output of files and scripts. If you need to override the `RequirementsHandler` backend, you can specify your own class (that implements `Requirements_Backend`) using the following configuration setting:
+
+	:::yml
+	Injector:
+	  RequirementsHandler:
+	    class: MyRequirementsHandler
 
 ## API Documentation
 

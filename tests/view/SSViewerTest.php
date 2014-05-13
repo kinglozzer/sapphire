@@ -92,15 +92,15 @@ class SSViewerTest extends SapphireTest {
 	}
 
 	public function testRequirements() {
-		$requirements = $this->getMock("Requirements_Backend", array("javascript", "css"));
+		$requirements = $this->getMock("RequirementsHandler", array("javascript", "css"));
 		$jsFile = FRAMEWORK_DIR . '/tests/forms/a.js';
 		$cssFile = FRAMEWORK_DIR . '/tests/forms/a.js';
 
 		$requirements->expects($this->once())->method('javascript')->with($jsFile);
 		$requirements->expects($this->once())->method('css')->with($cssFile);
 
-		Requirements::set_backend($requirements);
-
+		Injector::inst()->registerService($requirements, 'RequirementsHandler');
+		
 		$template = $this->render("<% require javascript($jsFile) %>
 		<% require css($cssFile) %>");
 		$this->assertFalse((bool)trim($template), "Should be no content in this return.");
@@ -1299,17 +1299,16 @@ after')
 		$template = new SSViewer(array('SSViewerTestProcess'));
 		$basePath = dirname($this->getCurrentRelativePath()) . '/forms';
 
-		$backend = new Requirements_Backend;
-		$backend->set_combined_files_enabled(false);
-		$backend->combine_files(
+		Config::nest();
+		Config::inst()->update('Requirements', 'combined_files_enabled', false);
+
+		Requirements::combine_files(
 			'RequirementsTest_ab.css',
 			array(
 				$basePath . '/RequirementsTest_a.css',
 				$basePath . '/RequirementsTest_b.css'
 			)
 		);
-
-		Requirements::set_backend($backend);
 
 		$this->assertEquals(1, substr_count($template->process(array()), "a.css"));
 		$this->assertEquals(1, substr_count($template->process(array()), "b.css"));
@@ -1318,21 +1317,25 @@ after')
 		$template->includeRequirements(false);
 		$this->assertEquals(0, substr_count($template->process(array()), "a.css"));
 		$this->assertEquals(0, substr_count($template->process(array()), "b.css"));
+
+		Config::unnest();
 	}
 
 	public function testRequireCallInTemplateInclude() {
 		//TODO undo skip test on the event that templates ever obtain the ability to reference MODULE_DIR (or something to that effect)
 		if(FRAMEWORK_DIR === 'framework') {
 			$template = new SSViewer(array('SSViewerTestProcess'));
-
-			Requirements::set_suffix_requirements(false);
+		
+			Config::nest();
+			Config::inst()->update('Requirements', 'suffix_requirements', false);
 
 			$this->assertEquals(1, substr_count(
 				$template->process(array()),
 				"tests/forms/RequirementsTest_a.js"
 			));
-		}
-		else {
+
+			Config::unnest();
+		} else {
 			$this->markTestSkipped('Requirement will always fail if the framework dir is not '.
 				'named \'framework\', since templates require hard coded paths');
 		}
