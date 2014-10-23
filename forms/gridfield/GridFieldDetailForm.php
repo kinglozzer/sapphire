@@ -207,7 +207,8 @@ class GridFieldDetailForm_ItemRequest extends RequestHandler {
 	private static $allowed_actions = array(
 		'edit',
 		'view',
-		'ItemEditForm'
+		'ItemEditForm',
+		'doCancel'
 	);
 	
 	/**
@@ -450,7 +451,10 @@ class GridFieldDetailForm_ItemRequest extends RequestHandler {
 				$form->addExtraClass('cms-tabset');
 			}
 
-			$form->Backlink = $this->getBackLink();
+			$form->CancelAction = FormAction::create('doCancel', _t('BackLink_Button_ss.Back', 'Back'))
+				->addExtraClass('ss-ui-action-cancel')
+				->setAttribute('data-icon', 'back')
+				->setUseButtonTag(true);
 		}
 
 		$cb = $this->component->getItemEditFormCallback();
@@ -602,6 +606,13 @@ class GridFieldDetailForm_ItemRequest extends RequestHandler {
 		}
 
 		//when an item is deleted, redirect to the parent controller
+		$controller = $this->getToplevelController();
+		$controller->getRequest()->addHeader('X-Pjax', 'Content'); // Force a content refresh
+
+		return $controller->redirect($this->getBacklink(), 302); //redirect back to admin section
+	}
+
+	public function doCancel($data, $form) {
 		$controller = $this->getToplevelController();
 		$controller->getRequest()->addHeader('X-Pjax', 'Content'); // Force a content refresh
 

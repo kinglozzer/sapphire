@@ -221,7 +221,7 @@
 		 * If we've a history state to go back to, go back, otherwise fall back to
 		 * submitting the form with the 'doCancel' action.
 		 */
-		$('.cms-edit-form .Actions input.action[type=submit].ss-ui-action-cancel, .cms-edit-form .Actions button.action.ss-ui-action-cancel').entwine({
+		$('.cms-edit-form input.action[type=submit].ss-ui-action-cancel, .cms-edit-form button.action.ss-ui-action-cancel').entwine({
 			onclick: function(e) {
 				if (History.getStateByIndex(1)) {
 					History.back();
