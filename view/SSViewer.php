@@ -26,7 +26,7 @@ class SSViewer_Scope {
 	
 	// The stack of previous "global" items
 	// And array of item, itemIterator, itemIteratorTotal, pop_index, up_index, current_index
-	private $itemStack = array(); 
+	protected $itemStack = array(); 
 	
 	// The current "global" item (the one any lookup starts from)
 	protected $item; 
@@ -41,7 +41,7 @@ class SSViewer_Scope {
 	private $popIndex;
 
 	// A pointer into the item stack for which item is "up" from this one
-	private $upIndex = null;
+	protected $upIndex = null;
 
 	// A pointer into the item stack for which item is this one (or null if not in stack yet)
 	private $currentIndex = null;
@@ -496,6 +496,59 @@ class SSViewer_DataPresenter extends SSViewer_Scope {
 			return $res;
 		}
 
+	}
+
+	/**
+	 * Store the current overlay (as it doesn't apply to the new scope). Use upIndex as 
+	 * SSViewer_Scope::obj() has already pushed another item to the stack by this point
+	 * @return SSViewer_Scope
+	 */
+	public function pushScope() {
+		$scope = parent::pushScope();
+
+		$this->itemStack[$this->upIndex][6] = $this->overlay;
+		$this->overlay = array();
+
+		return $scope;
+	}
+
+	/**
+	 * Restore the parent scope's overlay
+	 * @return SSViewer_Scope
+	 */
+	public function popScope() {
+		$this->overlay = $this->itemStack[$this->upIndex][6];
+		
+		return parent::popScope();
+	}
+
+	/**
+	 * $Up and $Top need to restore the overlay
+	 */
+	public function obj($name, $arguments = null, $forceReturnedObject = true, $cache = false, $cacheName = null) {
+		$overlayIndex = false;
+
+		switch($name) {
+			case 'Up':
+				if($this->upIndex === null) {
+					user_error('Up called when we\'re already at the top of the scope', E_USER_ERROR);
+				}
+
+				$overlayIndex = $this->upIndex;
+				break;
+			
+			case 'Top':
+				$overlayIndex = 0;
+				break;
+		}
+
+		if($overlayIndex !== false) {
+			if( ! $this->overlay && isset($this->itemStack[$overlayIndex][6])) {
+				$this->overlay = $this->itemStack[$overlayIndex][6];
+			}
+		}
+
+		return parent::obj($name, $arguments, $forceReturnedObject, $cache, $cacheName);
 	}
 
 	public function getObj($name, $arguments = null, $forceReturnedObject = true, $cache = false, $cacheName = null) {
