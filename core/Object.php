@@ -192,84 +192,18 @@ abstract class Object {
 	 * Returns a 2-elemnent array, with classname and arguments
 	 */
 	public static function parse_class_spec($classSpec) {
-		$tokens = token_get_all("<?php $classSpec");
-		$class = null;
-		$args = array();
-		$passedBracket = false;
-		
-		// Keep track of the current bucket that we're putting data into
-		$bucket = &$args;
-		$bucketStack = array();
-		$had_ns = false;
-		
-		foreach($tokens as $token) {
-			$tName = is_array($token) ? $token[0] : $token;
-			// Get the class naem
-			if($class == null && is_array($token) && $token[0] == T_STRING) {
-				$class = $token[1];
-			} elseif(is_array($token) && $token[0] == T_NS_SEPARATOR) {
-				$class .= $token[1];
-				$had_ns = true;
-			} elseif ($had_ns && is_array($token) && $token[0] == T_STRING) {
-				$class .= $token[1];
-				$had_ns = false;
-			// Get arguments
-			} else if(is_array($token)) {
-				switch($token[0]) {
-				case T_CONSTANT_ENCAPSED_STRING:
-					$argString = $token[1];
-					switch($argString[0]) {
-					case '"':
-						$argString = stripcslashes(substr($argString,1,-1));
-						break;
-					case "'":
-						$argString = str_replace(array("\\\\", "\\'"),array("\\", "'"), substr($argString,1,-1));
-						break;
-					default:
-						throw new Exception("Bad T_CONSTANT_ENCAPSED_STRING arg $argString");
-					}
-					$bucket[] = $argString;
-					break;
-			
-				case T_DNUMBER:
-					$bucket[] = (double)$token[1];
-					break;
-
-				case T_LNUMBER:
-					$bucket[] = (int)$token[1];
-					break;
-			
-				case T_STRING:
-					switch($token[1]) {
-						case 'true': $bucket[] = true; break;
-						case 'false': $bucket[] = false; break;
-						case 'null': $bucket[] = null; break;
-						default: throw new Exception("Bad T_STRING arg '{$token[1]}'");
-					}
-					break;
-
-				case T_ARRAY:
-					// Add an empty array to the bucket
-					$bucket[] = array();
-					$bucketStack[] = &$bucket;
-					$bucket = &$bucket[sizeof($bucket)-1];
-
-				}
-
-			} else {
-				if($tName == '[') {
-					// Add an empty array to the bucket
-					$bucket[] = array();
-					$bucketStack[] = &$bucket;
-					$bucket = &$bucket[sizeof($bucket)-1];
-				} elseif($tName == ')' || $tName == ']') {
-					// Pop-by-reference
-					$bucket = &$bucketStack[sizeof($bucketStack)-1];
-					array_pop($bucketStack);
-				}
-			}
+		// http://php.net/manual/en/language.oop5.basic.php
+		$classRegex = '[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]';
+		if( ! preg_match('/^((?:\\\?' . $classRegex . '+)+)(?:\((.*)\))?/i', $classSpec, $matches)) {
+			throw new Exception('Bad class specification: ' . $classSpec);
 		}
-	
+
+		$class = $matches[1];
+		$args = array();
+		if(isset($matches[2])) {
+			$args = eval('return array(' . $matches[2] . ');');
+		}
+
 		return array($class, $args);
 	}
 	
