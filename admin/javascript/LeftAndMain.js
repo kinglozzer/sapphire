@@ -300,6 +300,9 @@ jQuery.noConflict();
 					}
 				}
 
+				this.removeClass('jlayout-split jlayout-content jlayout-preview');
+				this.addClass('jlayout-' + newSpec.mode);
+
 				if (dirty) this.redraw();
 			},
 
