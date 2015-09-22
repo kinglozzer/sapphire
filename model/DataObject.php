@@ -2030,7 +2030,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
 	 * extra fields for all components available.
 	 *
 	 * @param string $component Deprecated - Name of component
-	 * @return array|null
+	 * @return array
 	 */
 	public function manyManyExtraFields($component = null) {
 		if($component) {
@@ -2049,7 +2049,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
 	/**
 	 * Return the many-to-many extra fields specification for a specific component.
 	 * @param string $component
-	 * @return array|null
+	 * @return array
 	 */
 	public function manyManyExtraFieldsForComponent($component) {
 		// Get all many_many_extraFields defined in this class or parent classes
@@ -2089,7 +2089,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
 			}
 		}
 
-		return isset($items) ? $items : null;
+		return array();
 	}
 
 	/**
