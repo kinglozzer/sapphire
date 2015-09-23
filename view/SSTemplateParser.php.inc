@@ -284,12 +284,16 @@ class SSTemplateParser extends Parser implements TemplateParser {
 		$res['LookupSteps'][] = $sub;
 		
 		$property = $sub['Call']['Method']['text'];
-		
+		$callArgs = "null";
 		if (isset($sub['Call']['CallArguments']) && $arguments = $sub['Call']['CallArguments']['php']) {
-			$res['php'] .= "->$method('$property', array($arguments), true)";
+			$callArgs = "array($arguments)";
 		}
-		else {
-			$res['php'] .= "->$method('$property', null, true)";
+
+		if ($method === 'obj') {
+			// obj() has an extra parameter for caching
+			$res['php'] .= "->$method('$property', $callArgs, true, true)";
+		} else {
+			$res['php'] .= "->$method('$property', $callArgs, true)";
 		}
 	}
 
