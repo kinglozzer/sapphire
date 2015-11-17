@@ -882,6 +882,11 @@ class Injector {
 				if ($constructorArgs) {
 					$spec['constructor'] = $constructorArgs;
 				}
+
+				if (class_exists($name) && isset($spec['class'])) {
+					$spec['class'] = $name;
+				}
+				
 				return $this->instantiate($spec, $name);
 			}
 		}
