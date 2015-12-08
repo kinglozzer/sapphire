@@ -413,13 +413,24 @@ class FieldList extends ArrayList {
 	 * Push a single field into this FieldList instance.
 	 *
 	 * @param FormField $item The FormField to add
-	 * @param string $key An option array key (field name)
 	 */
-	public function push($item, $key = null) {
+	public function push($item) {
 		$this->onBeforeInsert($item);
 		$item->setContainerFieldList($this);
 
-		return parent::push($item, $key);
+		parent::push($item);
+	}
+
+	/**
+	 * Push a single field onto the beginning of this FieldList instance.
+	 *
+	 * @param FormField $item The FormField to add
+	 */
+	public function unshift($item) {
+		$this->onBeforeInsert($item);
+		$item->setContainerFieldList($this);
+
+		parent::unshift($item);
 	}
 
 	/**
