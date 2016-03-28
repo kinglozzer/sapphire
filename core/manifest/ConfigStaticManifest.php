@@ -16,25 +16,23 @@ class SS_ConfigStaticManifest {
 	 * @return mixed|null
 	 */
 	public function get($class, $name, $default = null) {
-		if(class_exists($class)) {
-
+		// property_exists() will also check whether the class exists
+		if (property_exists($class, $name)) {
 			// The config system is case-sensitive so we need to check the exact value
 			$reflection = new ReflectionClass($class);
 			if(strcmp($reflection->name, $class) === 0) {
-
-				if($reflection->hasProperty($name)) {
-					$property = $reflection->getProperty($name);
-					if($property->isStatic()) {
-						if(!$property->isPrivate()) {
-							Deprecation::notice('4.0', "Config static $class::\$$name must be marked as private",
-								Deprecation::SCOPE_GLOBAL);
-							return null;
-						}
-						$property->setAccessible(true);
-						return $property->getValue();
-					}
+				// If we can access this directly, it must be public static
+				if (isset($class::${$name})) {
+					return null;
 				}
 
+				// If it's protected or private static, we must bind a closure to the scope of the
+				// class in order to access the property
+				$thief = Closure::bind(function($name) {
+					return (isset(self::${$name})) ? self::${$name} : null;
+				}, null, $class);
+
+				return $thief($name);
 			}
 		}
 		return null;
