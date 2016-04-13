@@ -46,4 +46,8 @@ class PDOQuery extends SS_Query {
 		}
 	}
 
+	public function __sleep() {
+		return array('results', 'rowNum', 'currentRecord', 'queryHasBegun');
+	}
+
 }

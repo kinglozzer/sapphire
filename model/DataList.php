@@ -1055,6 +1055,16 @@ class DataList extends ViewableData implements SS_List, SS_Filterable, SS_Sortab
 	}
 
 	/**
+	 * @param int|null $minutes
+	 * @return DataList
+	 */
+	public function remember($minutes = null) {
+		return $this->alterDataQuery(function($query) use ($minutes) {
+			$query->remember($minutes);
+		});
+	}
+
+	/**
 	 * This method won't function on DataLists due to the specific query that it represent
 	 *
 	 * @param mixed $item

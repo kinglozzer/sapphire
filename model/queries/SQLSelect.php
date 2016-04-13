@@ -59,6 +59,11 @@ class SQLSelect extends SQLConditionalExpression {
 	protected $limit = array();
 
 	/**
+	 * @var int
+	 */
+	protected $remember;
+
+	/**
 	 * Construct a new SQLSelect.
 	 *
 	 * @param array $select An array of SELECT fields.
@@ -672,4 +677,47 @@ class SQLSelect extends SQLConditionalExpression {
 		$query->setLimit(1, $index);
 		return $query;
 	}
+
+	/**
+	 * @param int|null $minutes
+	 * @return DataList
+	 */
+	public function remember($minutes = null) {
+		if ($minutes === null) {
+			$minutes = SQLSelectQueryCache::CACHE_FOR_REQUEST;
+		}
+
+		$this->remember = $minutes;
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function execute() {
+		$sql = $this->sql($parameters);
+
+		if ($this->remember !== null) {
+			return $this->executeCached($sql, $parameters);
+		}
+
+		return DB::prepared_query($sql, $parameters);
+	}
+
+	/**
+	 * @param string $sql
+	 * @param array $parameters
+	 * @return SS_Query
+	 */
+	protected function executeCached($sql, $parameters) {
+		$cache = Injector::inst()->get('SQLSelectQueryCache');
+		$cacheKey = md5($sql . serialize($parameters));
+
+		if (!$result = $cache->load($cacheKey, $this->remember)) {
+			$result = DB::prepared_query($sql, $parameters);
+			$cache->save($result, $cacheKey, $this->remember);
+		}
+
+		return $result;
+	}
+
 }

@@ -825,6 +825,14 @@ class DataQuery {
 	public function getQueryParams() {
 		return $this->queryParams;
 	}
+
+	/**
+	 * @param int|null $minutes
+	 * @return DataList
+	 */
+	public function remember($minutes = null) {
+		$this->query->remember($minutes);
+	}
 }
 
 /**
