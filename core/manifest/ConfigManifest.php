@@ -94,9 +94,9 @@ class SS_ConfigManifest {
 		// Unless we're forcing regen, try loading from cache
 		if (!$forceRegen) {
 			// The PHP config sources are always needed
-			$this->phpConfigSources = $this->cache->load($this->key.'php_config_sources');
+			$this->phpConfigSources = unserialize($this->cache->getItem($this->key.'php_config_sources'));
 			// Get the variant key spec
-			$this->variantKeySpec = $this->cache->load($this->key.'variant_key_spec');
+			$this->variantKeySpec = unserialize($this->cache->getItem($this->key.'variant_key_spec'));
 		}
 
 		// If we don't have a variantKeySpec (because we're forcing regen, or it just wasn't in the cache), generate it
@@ -115,8 +115,7 @@ class SS_ConfigManifest {
 	protected function getCache()
 	{
 		return SS_Cache::factory('SS_Configuration', 'Core', array(
-			'automatic_serialization' => true,
-			'lifetime' => null
+			'ttl' => null
 		));
 	}
 
@@ -220,9 +219,9 @@ class SS_ConfigManifest {
 		$this->buildVariantKeySpec();
 
 		if ($cache) {
-			$this->cache->save($this->phpConfigSources, $this->key.'php_config_sources');
-			$this->cache->save($this->yamlConfigFragments, $this->key.'yaml_config_fragments');
-			$this->cache->save($this->variantKeySpec, $this->key.'variant_key_spec');
+			$this->cache->setItem($this->key.'php_config_sources', serialize($this->phpConfigSources));
+			$this->cache->setItem($this->key.'yaml_config_fragments', serialize($this->yamlConfigFragments));
+			$this->cache->setItem($this->key.'variant_key_spec', serialize($this->variantKeySpec));
 		}
 	}
 
@@ -553,13 +552,13 @@ class SS_ConfigManifest {
 		// given variant is stale compared to the complete set of fragments
 		if (!$this->yamlConfigFragments) {
 			// First try and just load the exact variant
-			if ($this->yamlConfig = $this->cache->load($this->key.'yaml_config_'.$this->variantKey())) {
+			if ($this->yamlConfig = unserialize($this->cache->getItem($this->key.'yaml_config_'.$this->variantKey()))) {
 				$this->yamlConfigVariantKey = $this->variantKey();
 				return;
 			}
 			// Otherwise try and load the fragments so we can build the variant
 			else {
-				$this->yamlConfigFragments = $this->cache->load($this->key.'yaml_config_fragments');
+				$this->yamlConfigFragments = unserialize($this->cache->getItem($this->key.'yaml_config_fragments'));
 			}
 		}
 
@@ -586,7 +585,7 @@ class SS_ConfigManifest {
 		}
 
 		if ($cache) {
-			$this->cache->save($this->yamlConfig, $this->key.'yaml_config_'.$this->variantKey());
+			$this->cache->setItem($this->key.'yaml_config_'.$this->variantKey(), serialize($this->yamlConfig));
 		}
 
 		// Since yamlConfig has changed, call any callbacks that are interested

@@ -1690,7 +1690,7 @@ class LeftAndMain extends Controller implements PermissionProvider {
 		if (file_exists($composerLockPath)) {
 			$cache = SS_Cache::factory('LeftAndMain_CMSVersion');
 			$cacheKey = filemtime($composerLockPath);
-			$versions = $cache->load($cacheKey);
+			$versions = $cache->getItem($cacheKey);
 			if($versions) {
 				$versions = json_decode($versions, true);
 			} else {
@@ -1707,7 +1707,7 @@ class LeftAndMain extends Controller implements PermissionProvider {
 							$versions[$package->name] = $package->version;
 						}
 					}
-					$cache->save(json_encode($versions), $cacheKey);
+					$cache->setItem($cacheKey, json_encode($versions));
 				}
 			}
 		}

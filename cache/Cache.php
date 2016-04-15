@@ -1,5 +1,8 @@
 <?php
 
+use Zend\Cache\StorageFactory;
+use Zend\Cache\Storage\StorageInterface;
+
 /**
  * The `[api:SS_Cache]` class provides a bunch of static functions wrapping the Zend_Cache system
  * in something a little more easy to use with the SilverStripe config system.
@@ -38,7 +41,7 @@ class SS_Cache {
 			}
 
 			self::$backends['default'] = array(
-				'File',
+				'Filesystem',
 				array(
 					'cache_dir' => $cachedir
 				)
@@ -144,11 +147,11 @@ class SS_Cache {
 	 *
 	 * @param string $for The name of the cache to build
 	 * @param string $frontend (optional) The type of Zend_Cache frontend
-	 * @param array $frontendOptions (optional) Any frontend options to use.
+	 * @param array $instanceOptions (optional) Any frontend options to use.
 	 *
 	 * @return Zend_Cache_Frontend The cache object
 	 */
-	public static function factory($for, $frontend='Output', $frontendOptions=null) {
+	public static function factory($for, $frontend = 'Output', array $instanceOptions = array()) {
 		self::init();
 
 		$backend_name = 'default';
@@ -172,22 +175,22 @@ class SS_Cache {
 			}
 		}
 
-		$backend = self::$backends[$backend_name];
-
-		$basicOptions = array('cache_id_prefix' => $for);
+		list($backendName, $options) = self::$backends[$backend_name];
+		$options['namespace'] = $for;
 
 		if ($cache_lifetime >= 0) {
-			$basicOptions['lifetime'] = $cache_lifetime;
+			$options['ttl'] = $cache_lifetime;
 		} else {
-			$basicOptions['caching'] = false;
+			$options['ttl'] = 0.1;
 		}
 
-		$frontendOptions = $frontendOptions ? array_merge($basicOptions, $frontendOptions) : $basicOptions;
+		$options = array_merge($options, $instanceOptions);
 
-		require_once 'Zend/Cache.php';
-
-		return Zend_Cache::factory(
-			$frontend, $backend[0], $frontendOptions, $backend[1]
-		);
+		return StorageFactory::factory([
+			'adapter' => [
+				'name' => $backendName,
+				'options' => $options
+			]
+		]);
 	}
 }

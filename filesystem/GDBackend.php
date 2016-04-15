@@ -636,7 +636,7 @@ class GDBackend extends Object implements Image_Backend, Flushable {
 	public static function flush() {
 		// Clear factory
 		$cache = SS_Cache::factory('GDBackend_Manipulations');
-		$cache->clean(Zend_Cache::CLEANING_MODE_ALL);
+		$cache->flush();
 	}
 
 }
