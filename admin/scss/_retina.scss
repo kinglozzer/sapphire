@@ -83,13 +83,6 @@
 		}
 	}
 
-	/* Logout button */
-	.cms-login-status {
-		.logout-link {
-			@include retina-sprite($sprites32-2x, logout);
-		}
-	}
-
 	.cms-content-controls {
 		.icon-auto:before {
 			@include retina-sprite($sprites32-2x, preview_auto);
