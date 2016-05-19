@@ -519,8 +519,48 @@ class SS_ClassManifest {
 		// files will have changed and TokenisedRegularExpression is quite
 		// slow. A combination of the file name and file contents hash are used,
 		// since just using the datetime lead to problems with upgrading.
-		$file = file_get_contents($pathname);
-		$key  = preg_replace('/[^a-zA-Z0-9_]/', '_', $basename) . '_' . md5($file);
+		$contents = @php_strip_whitespace($pathname);
+        if (!$contents) {
+            if (!file_exists($path)) {
+                $message = 'File at "%s" does not exist, check your classmap definitions';
+            } elseif (!is_readable($path)) {
+                $message = 'File at "%s" is not readable, check its permissions';
+            } elseif ('' === trim(file_get_contents($path))) {
+                // The input file was really empty and thus contains no classes
+                return array();
+            } else {
+                $message = 'File at "%s" could not be parsed as PHP, it may be binary or corrupted';
+            }
+            $error = error_get_last();
+            if (isset($error['message'])) {
+                $message .= PHP_EOL . 'The following message may be helpful:' . PHP_EOL . $error['message'];
+            }
+            throw new \RuntimeException(sprintf($message, $path));
+        }
+        // return early if there is no chance of matching anything in this file
+        if (!preg_match('{\b(?:class|interface|trait)\s}i', $contents)) {
+            return array();
+        }
+        // strip heredocs/nowdocs
+        $contents = preg_replace('{<<<\s*(\'?)(\w+)\\1(?:\r\n|\n|\r)(?:.*?)(?:\r\n|\n|\r)\\2(?=\r\n|\n|\r|;)}s', 'null', $contents);
+        // strip strings
+        $contents = preg_replace('{"[^"\\\\]*+(\\\\.[^"\\\\]*+)*+"|\'[^\'\\\\]*+(\\\\.[^\'\\\\]*+)*+\'}s', 'null', $contents);
+        // strip leading non-php code if needed
+        if (substr($contents, 0, 2) !== '<?') {
+            $contents = preg_replace('{^.+?<\?}s', '<?', $contents, 1, $replacements);
+            if ($replacements === 0) {
+                return array();
+            }
+        }
+        // strip non-php blocks in the file
+        $contents = preg_replace('{\?>.+<\?}s', '?><?', $contents);
+        // strip trailing non-php code if needed
+        $pos = strrpos($contents, '?>');
+        if (false !== $pos && false === strpos(substr($contents, $pos), '<?')) {
+            $contents = substr($contents, 0, $pos);
+        }
+
+		$key  = preg_replace('/[^a-zA-Z0-9_]/', '_', $basename) . '_' . md5($contents);
 
 		$valid = false;
 		if ($data = $this->cache->load($key)) {
@@ -542,7 +582,24 @@ class SS_ClassManifest {
 		}
 
 		if (!$valid) {
-			$tokens     = token_get_all($file);
+			$split = str_split($contents);
+			$file = '';
+			$depth = 0;
+			foreach ($split as $char) {
+				if ($char === '{') {
+					if ($depth === 0) $file .= '{';
+
+					$depth++;
+				} else if ($char === '}') {
+					$depth--;
+
+					if ($depth === 0) $file .= '}';
+				} else if ($depth === 0) {
+					$file .= $char;
+				}
+			}
+
+			$tokens     = token_get_all($contents);
 
 			$classes = self::get_namespaced_class_parser()->findAll($tokens);
 			$traits = self::get_trait_parser()->findAll($tokens);
