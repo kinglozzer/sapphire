@@ -1,12 +1,11 @@
 <?php
 
 namespace SilverStripe\Core;
-
-use Zend_Cache;
-use Zend_Cache_Core;
+use Zend\Cache\StorageFactory;
+use Zend\Cache\Storage\StorageInterface;
 
 /**
- * The `[api:Cache]` class provides a bunch of static functions wrapping the Zend_Cache system
+ * The `[api:Cache]` class provides a bunch of static functions wrapping the Zend cache component
  * in something a little more easy to use with the SilverStripe config system.
  *
  * @see https://docs.silverstripe.org/en/3.4/developer_guides/performance/caching/
@@ -40,12 +39,7 @@ class Cache {
 			}
 
 			/** @skipUpgrade */
-			self::$backends['default'] = array(
-				'File',
-				array(
-					'cache_dir' => $cachedir
-				)
-			);
+			self::$backends['default'] = ['Filesystem', ['cache_dir' => $cachedir], []];
 
 			self::$cache_lifetime['default'] = array(
 				'lifetime' => 600,
@@ -60,12 +54,13 @@ class Cache {
 	 * @see http://framework.zend.com/manual/en/zend.cache.html
 	 *
 	 * @param string $name The name of this backend as a freeform string
-	 * @param string $type The Zend_Cache backend ('File' or 'Sqlite' or ...)
-	 * @param array $options The Zend_Cache backend options
+	 * @param string $adapter The Zend cache adapter ('Filesystem' or 'Sqlite' or ...)
+	 * @param array $options The Zend cache options
+	 * @param array $plugins Plugins, e.g. serializer
 	 */
-	public static function add_backend($name, $type, $options = array()) {
+	public static function add_backend($name, $adapter, $options = [], $plugins = []) {
 		self::init();
-		self::$backends[$name] = array($type, $options);
+		self::$backends[$name] = array($adapter, $options, $plugins);
 	}
 
 	/**
@@ -142,11 +137,10 @@ class Cache {
 	 * @see http://framework.zend.com/manual/en/zend.cache.html
 	 *
 	 * @param string $for The name of the cache to build
-	 * @param string $frontend (optional) The type of Zend_Cache frontend
-	 * @param array $frontendOptions (optional) Any frontend options to use.
-	 * @return Zend_Cache_Core The cache object
+	 * @param array $instanceOptions (optional) Any frontend options to use.
+	 * @return Zend\Cache\Storage\StorageInterface The cache object
 	 */
-	public static function factory($for, $frontend='Output', $frontendOptions=null) {
+	public static function factory($for, array $instanceOptions = []) {
 		self::init();
 
 		$backend_name = 'default';
@@ -170,22 +164,22 @@ class Cache {
 			}
 		}
 
-		$backend = self::$backends[$backend_name];
-
-		$basicOptions = array('cache_id_prefix' => $for);
+		list($backendName, $options, $plugins) = self::$backends[$backend_name];
+		$options['namespace'] = $for;
 
 		if ($cache_lifetime >= 0) {
-			$basicOptions['lifetime'] = $cache_lifetime;
+			$options['ttl'] = $cache_lifetime;
 		} else {
-			$basicOptions['caching'] = false;
+			$options['ttl'] = 0.1;
 		}
 
-		$frontendOptions = $frontendOptions ? array_merge($basicOptions, $frontendOptions) : $basicOptions;
-
-		require_once 'Zend/Cache.php';
-
-		return Zend_Cache::factory(
-			$frontend, $backend[0], $frontendOptions, $backend[1]
-		);
+		$options = array_merge($options, $instanceOptions);
+		return StorageFactory::factory([
+			'adapter' => [
+				'name' => $backendName,
+				'options' => $options
+			],
+			'plugins' => $plugins
+		]);
 	}
 }

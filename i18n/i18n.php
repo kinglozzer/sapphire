@@ -11,11 +11,7 @@ use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Core\Manifest\ClassLoader;
 use SilverStripe\ORM\ArrayLib;
 use SilverStripe\View\TemplateGlobalProvider;
-use Zend_Cache_Backend_ExtendedInterface;
-use Zend_Cache;
-use Zend_Cache_Core;
-use Zend_Translate_Adapter;
-use Zend_Translate;
+use Zend\I18n\Translator\Translator;
 use Zend_Locale_Data;
 use Zend_Locale_Exception;
 use InvalidArgumentException;
@@ -111,7 +107,7 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 	private static $time_format = 'H:mm';
 
 	/**
-	 * @var array Array of priority keys to instances of Zend_Translate, mapped by name.
+	 * @var array Array of priority keys to instances of Translator, mapped by name.
 	 */
 	protected static $translators;
 
@@ -120,27 +116,17 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 	 */
 	public static function flush() {
 		$cache = self::get_cache();
-		$backend = $cache->getBackend();
-
-		if(
-			$backend instanceof Zend_Cache_Backend_ExtendedInterface
-			&& ($capabilities = $backend->getCapabilities())
-			&& $capabilities['tags']
-		) {
-			$cache->clean(Zend_Cache::CLEANING_MODE_MATCHING_TAG, $cache->getTags());
-		} else {
-			$cache->clean(Zend_Cache::CLEANING_MODE_ALL);
-		}
+		$cache->flush();
 	}
 
 	/**
 	 * Return an instance of the cache used for i18n data.
 	 *
 	 * @skipUpgrade
-	 * @return Zend_Cache_Core
+	 * @return Zend\Cache\Storage\StorageInterface
 	 */
 	public static function get_cache() {
-		return Cache::factory('i18n', 'Output', array('lifetime' => null, 'automatic_serialization' => true));
+		return Cache::factory('i18n', ['ttl' => null]);
 	}
 
 	/**
@@ -1998,9 +1984,15 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 
 		// Find best translation
 		$locale = i18n::get_locale();
-		$returnValue = static::with_translators(function(Zend_Translate_Adapter $adapter) use ($entity, $locale) {
+		$returnValue = static::with_translators(function(Translator $translator) use ($entity, $locale) {
 			// Return translation only if we found a match thats not the entity itself (Zend fallback)
-			$translation = $adapter->translate($entity, $locale);
+			$translation = $translator->translate($entity, 'default', $locale);
+
+			if ($translation && $translation === $entity) {
+				$lang = i18n::get_lang_from_locale($locale);
+				$translation = $translator->translate($entity, 'default', $lang);
+			}
+
 			if($translation && $translation != $entity) {
 				return $translation;
 			}
@@ -2069,10 +2061,16 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 	public static function pluralise($singular, $plural, $number, $prependNumber = true) {
 		$locale = static::get_locale();
 		$form = static::with_translators(
-			function(Zend_Translate_Adapter $adapter) use ($singular, $plural, $number, $locale) {
+			function(Translator $translator) use ($singular, $plural, $number, $locale) {
 				// Return translation only if we found a match thats not the entity itself (Zend fallback)
-				$result = $adapter->plural($singular, $plural, $number, $locale);
-				if($result) {
+				$result = $translator->translatePlural($singular, $plural, $number, 'default', $locale);
+
+				if ($result && $result === $entity) {
+					$lang = i18n::get_lang_from_locale($locale);
+					$result = $translator->translatePlural($singular, $plural, $number, 'default', $lang);
+				}
+
+				if ($result) {
 					return $result;
 				}
 				return null;
@@ -2104,25 +2102,23 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 		$translatorsByPrio = self::$translators ?: self::get_translators();
 
 		foreach($translatorsByPrio as $priority => $translators) {
-			/** @var Zend_Translate $translator */
+			/** @var Translator $translator */
 			foreach($translators as $name => $translator) {
-				$adapter = $translator->getAdapter();
-
 				// at this point, we need to ensure the language and locale are loaded
 				// as include_by_locale() doesn't load a fallback.
 
 				// TODO Remove reliance on global state, by refactoring into an i18nTranslatorManager
 				// which is instanciated by core with a $clean instance variable.
 
-				if(!$adapter->isAvailable($lang)) {
+				if(empty($translator->getAllMessages('default', $lang))) {
 					i18n::include_by_locale($lang);
 				}
 
-				if(!$adapter->isAvailable($locale)) {
+				if(empty($translator->getAllMessages('default', $locale))) {
 					i18n::include_by_locale($locale);
 				}
 
-				$result = call_user_func($callback, $adapter);
+				$result = call_user_func($callback, $translator);
 				if($result !== null) {
 					return $result;
 				}
@@ -2135,22 +2131,22 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 
 
 	/**
-	 * @return array Array of priority keys to instances of Zend_Translate, mapped by name.
+	 * @return array Array of priority keys to instances of Translator, mapped by name.
 	 */
 	public static function get_translators() {
-		if(!Zend_Translate::getCache()) {
-			Zend_Translate::setCache(self::get_cache());
-		}
-
 		if(!self::$translators) {
 			$defaultPriority = 10;
-			self::$translators[$defaultPriority] = array(
-				'core' => new Zend_Translate(array(
-					'adapter' => 'SilverStripe\\i18n\\i18nRailsYamlAdapter',
-					'locale' => i18n::config()->get('default_locale'),
-					'disableNotices' => true,
-				))
-			);
+			$cache = self::get_cache();
+
+			$translator = Translator::factory([
+				'locale' => self::$default_locale,
+				'cache' => $cache
+			]);
+
+			$translator->getPluginManager()->setInvokableClass('yml', 'SilverStripe\i18n\YamlLoader');
+			$translator->getPluginManager()->setInvokableClass('yaml', 'SilverStripe\i18n\YamlLoader');
+
+			self::$translators[$defaultPriority] = ['core' => $translator];
 
 			i18n::include_by_locale('en');
 			i18n::include_by_locale('en_US');
@@ -2161,7 +2157,7 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 
 	/**
 	 * @param String
-	 * @return Zend_Translate
+	 * @return Translator
 	 */
 	public static function get_translator($name) {
 		foreach(self::get_translators() as $priority => $translators) {
@@ -2173,11 +2169,11 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 	}
 
 	/**
-	 * @param Zend_Translate $translator Needs to implement {@link i18nTranslateAdapterInterface}
+	 * @param Translator $translator Needs to implement {@link i18nTranslateAdapterInterface}
 	 * @param string $name If left blank will override the default translator.
 	 * @param int $priority
 	 */
-	public static function register_translator($translator, $name, $priority = 10) {
+	public static function register_translator(Translator $translator, $name, $priority = 10) {
 		if (!is_int($priority)) {
 			throw new InvalidArgumentException("register_translator expects an int priority");
 		}
@@ -2539,20 +2535,17 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 		// Loop in reverse order, meaning the translator with the highest priority goes first
 		$translatorsByPrio = array_reverse(self::get_translators(), true);
 		foreach($translatorsByPrio as $priority => $translators) {
-			/** @var Zend_Translate $translator */
+			/** @var Translator $translator */
 			foreach($translators as $name => $translator) {
-				/** @var i18nTranslateAdapterInterface|Zend_Translate_Adapter $adapter */
-				$adapter = $translator->getAdapter();
-
 				// Load translations from modules
 				foreach($sortedModules as $module) {
-					$filename = $adapter->getFilenameForLocale($locale);
-					$filepath = "{$module}/lang/" . $filename;
+					$filepath = "{$module}/lang/" . $locale . ".yml";
 
-					if($filename && !file_exists($filepath)) continue;
-					$adapter->addTranslation(
-						array('content' => $filepath, 'locale' => $locale)
-					);
+					if(!file_exists($filepath)) {
+						continue;
+					}
+
+					$translator->addTranslationFile('yaml', $filepath, 'default', $locale);
 				}
 
 				// Load translations from themes
@@ -2564,26 +2557,16 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 							strpos($theme, Config::inst()->get('SilverStripe\\View\\SSViewer', 'theme')) === 0
 							&& file_exists("{$themesBase}/{$theme}/lang/")
 						) {
-							$filename = $adapter->getFilenameForLocale($locale);
-							$filepath = "{$themesBase}/{$theme}/lang/" . $filename;
-							if($filename && !file_exists($filepath)) continue;
-							$adapter->addTranslation(
-								array('content' => $filepath, 'locale' => $locale)
-							);
+							$filepath = "{$themesBase}/{$theme}/lang/" . $locale . ".yml";
+
+							if(!file_exists($filepath)) {
+								continue;
+							}
+
+							$translator->addTranslationFile('yaml', $filepath, 'default', $locale);
 						}
 					}
 				}
-
-				// Add empty translations to ensure the locales are "registered" with isAvailable(),
-				// and the next invocation of include_by_locale() doesn't cause a new reparse.
-				$adapter->addTranslation(
-					array(
-						// Cached by content hash, so needs to be locale dependent
-						'content' => array($locale => $locale),
-						'locale' => $locale,
-						'usetranslateadapter' => true
-					)
-				);
 			}
 		}
 	}
@@ -2597,20 +2580,19 @@ class i18n extends Object implements TemplateGlobalProvider, Flushable {
 	 */
 	public static function include_by_class($class) {
 		$module = self::get_owner_module($class);
+		$locale = self::get_locale();
 
 		$translatorsByPrior = array_reverse(self::get_translators(), true);
 		foreach($translatorsByPrior as $priority => $translators) {
-			/** @var Zend_Translate $translator */
+			/** @var Translator $translator */
 			foreach($translators as $name => $translator) {
-				/** @var i18nTranslateAdapterInterface|Zend_Translate_Adapter $adapter */
-				$adapter = $translator->getAdapter();
-				$filename = $adapter->getFilenameForLocale(self::get_locale());
-				$filepath = "{$module}/lang/" . $filename;
-				if($filename && !file_exists($filepath)) continue;
-				$adapter->addTranslation(array(
-					'content' => $filepath,
-					'locale' => self::get_locale()
-				));
+				$filepath = "{$module}/lang/" . $locale . ".yml";
+
+				if(!file_exists($filepath)) {
+					continue;
+				}
+
+				$translator->addTranslationFile('yaml', $filepath, 'default', $locale);
 			}
 		}
 	}

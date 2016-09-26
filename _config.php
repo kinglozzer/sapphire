@@ -37,6 +37,13 @@ $_ENV['TMPDIR'] = TEMP_FOLDER; // for *nix
 $_ENV['TMP'] = TEMP_FOLDER; // for Windows
 
 Cache::set_cache_lifetime('GDBackend_Manipulations', null, 100);
+Cache::add_backend(
+	'i18nbackend',
+	'Filesystem',
+	['cache_dir' => TEMP_FOLDER . DIRECTORY_SEPARATOR . 'cache'],
+	['serializer']
+);
+Cache::pick_backend('i18nbackend', 'i18n');
 
 // If you don't want to see deprecation errors for the new APIs, change this to 3.2.0-dev.
 Deprecation::notification_version('3.2.0');

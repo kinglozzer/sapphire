@@ -443,17 +443,7 @@ class SSViewer implements Flushable {
 	public static function flush_cacheblock_cache($force = false) {
 		if (!self::$cacheblock_cache_flushed || $force) {
 			$cache = Cache::factory('cacheblock');
-			$backend = $cache->getBackend();
-
-			if(
-				$backend instanceof Zend_Cache_Backend_ExtendedInterface
-				&& ($capabilities = $backend->getCapabilities())
-				&& $capabilities['tags']
-			) {
-				$cache->clean(Zend_Cache::CLEANING_MODE_MATCHING_TAG, $cache->getTags());
-			} else {
-				$cache->clean(Zend_Cache::CLEANING_MODE_ALL);
-			}
+			$cache->flush();
 
 
 			self::$cacheblock_cache_flushed = true;
