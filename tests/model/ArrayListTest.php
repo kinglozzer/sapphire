@@ -472,6 +472,42 @@ class ArrayListTest extends SapphireTest {
 		));
 	}
 
+	public function testSortNumeric() {
+		$list = new ArrayList(array(
+			array('Sort' => 0),
+			array('Sort' => -1),
+			array('Sort' => 1),
+			array('Sort' => -2),
+			array('Sort' => 2),
+			array('Sort' => -10),
+			array('Sort' => 10)
+		));
+
+		// Sort descending
+		$list1 = $list->sort('Sort', 'DESC');
+		$this->assertEquals($list1->toArray(), array(
+			array('Sort' => 10),
+			array('Sort' => 2),
+			array('Sort' => 1),
+			array('Sort' => 0),
+			array('Sort' => -1),
+			array('Sort' => -2),
+			array('Sort' => -10)
+		));
+
+		// Sort ascending
+		$list1 = $list->sort('Sort', 'ASC');
+		$this->assertEquals($list1->toArray(), array(
+			array('Sort' => -10),
+			array('Sort' => -2),
+			array('Sort' => -1),
+			array('Sort' => 0),
+			array('Sort' => 1),
+			array('Sort' => 2),
+			array('Sort' => 10)
+		));
+	}
+
 	public function testReverse() {
 		$list = new ArrayList(array(
 			array('Name' => 'John'),
