@@ -431,26 +431,43 @@ class ArrayList extends ViewableData implements SS_List, SS_Filterable, SS_Sorta
 		// This the main sorting algorithm that supports infinite sorting params
 		$multisortArgs = array();
 		$values = array();
-		$firstRun = true;
 		foreach($columnsToSort as $column => $direction) {
 			// The reason these are added to columns is of the references, otherwise when the foreach
 			// is done, all $values and $direction look the same
 			$values[$column] = array();
 			$sortDirection[$column] = $direction;
+
 			// We need to subtract every value into a temporary array for sorting
+			$allValuesAreNumeric = true;
 			foreach($this->items as $index => $item) {
-				$values[$column][] = strtolower($this->extractValue($item, $column));
+				$value = $this->extractValue($item, $column);
+
+				// If any of the values aren't numeric, we can't sort on this column with SORT_NUMERIC
+				if (!is_numeric($value)) {
+					$allValuesAreNumeric = false;
+					$value = strtolower($value); // Helps with string sorting if SORT_NATURAL isn't available
+				}
+
+				$values[$column][] = $value;
 			}
+
 			// PHP 5.3 requires below arguments to be reference when using array_multisort together
 			// with call_user_func_array
+
 			// First argument is the 'value' array to be sorted
 			$multisortArgs[] = &$values[$column];
-			// First argument is the direction to be sorted,
+
+			// Second argument is the direction to be sorted
 			$multisortArgs[] = &$sortDirection[$column];
-			if ($firstRun) {
+
+			// Third argument is the sorting flag
+			// Numeric columns are sorted with the SORT_NUMERIC flag, string columns will use
+			// SORT_NATURAL if it's available in the current version of PHP
+			if ($allValuesAreNumeric) {
+				$multisortArgs[] = SORT_NUMERIC;
+			} else {
 				$multisortArgs[] = defined('SORT_NATURAL') ? SORT_NATURAL : SORT_STRING;
 			}
-			$firstRun = false;
 		}
 
 		$multisortArgs[] = &$originalKeys;
