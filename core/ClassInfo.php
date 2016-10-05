@@ -93,7 +93,7 @@ class ClassInfo {
 		);
 
 		foreach ($classes as $class) {
-			if (DataObject::has_own_table($class)) $result[$class] = $class;
+			if (self::hasTable($class)) $result[$class] = $class;
 		}
 
 		return $result;
