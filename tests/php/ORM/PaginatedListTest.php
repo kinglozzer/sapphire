@@ -88,7 +88,7 @@ class PaginatedListTest extends SapphireTest
         $this->assertEquals(1, $list->CurrentPage());
     }
 
-    public function testGetIterator()
+    public function testIteration()
     {
         $list = new PaginatedList(
             new ArrayList(
@@ -105,23 +105,23 @@ class PaginatedListTest extends SapphireTest
 
         $this->assertDOSEquals(
             array(array('Num' => 1), array('Num' => 2)),
-            $list->getIterator()
+            $list
         );
 
         $list->setCurrentPage(2);
         $this->assertDOSEquals(
             array(array('Num' => 3), array('Num' => 4)),
-            $list->getIterator()
+            $list
         );
 
         $list->setCurrentPage(3);
         $this->assertDOSEquals(
             array(array('Num' => 5)),
-            $list->getIterator()
+            $list
         );
 
         $list->setCurrentPage(999);
-        $this->assertDOSEquals(array(), $list->getIterator());
+        $this->assertDOSEquals(array(), $list);
 
         // Test disabled paging
         $list->setPageLength(0);
@@ -134,14 +134,14 @@ class PaginatedListTest extends SapphireTest
                 array('Num' => 4),
                 array('Num' => 5)
             ),
-            $list->getIterator()
+            $list
         );
 
         // Test with dataobjectset
         $players = Player::get();
         $list = new PaginatedList($players);
         $list->setPageLength(1);
-        $list->getIterator();
+        $list;
         $this->assertEquals(
             4,
             $list->getTotalItems(),
@@ -220,10 +220,10 @@ class PaginatedListTest extends SapphireTest
         $list = new PaginatedList($list);
 
         $list->setCurrentPage(3);
-        $this->assertEquals(10, count($list->getIterator()->getInnerIterator()));
+        $this->assertEquals(10, count($list->toArray()));
 
         $list->setLimitItems(false);
-        $this->assertEquals(50, count($list->getIterator()->getInnerIterator()));
+        $this->assertEquals(50, count($list->toArray()));
     }
 
     public function testCurrentPage()
