@@ -6,6 +6,7 @@ use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\Debug;
 use SilverStripe\ORM\Filters\SearchFilter;
 use SilverStripe\ORM\Queries\SQLConditionGroup;
+use SilverStripe\View\CountableIterator;
 use SilverStripe\View\ViewableData;
 use ArrayIterator;
 use Exception;
@@ -32,7 +33,7 @@ use LogicException;
  *
  * Subclasses of DataList may add other methods that have the same effect.
  */
-class DataList extends ViewableData implements SS_List, Filterable, Sortable, Limitable
+class DataList extends ViewableData implements SS_List, Filterable, Sortable, Limitable, CountableIterator
 {
 
     /**
@@ -55,6 +56,13 @@ class DataList extends ViewableData implements SS_List, Filterable, Sortable, Li
      * @var DataModel
      */
     protected $model;
+
+    /**
+     * A cached Query to save repeated database calls
+     *
+     * @var Query
+     */
+    protected $queryResult;
 
     /**
      * Create a new DataList.
@@ -96,6 +104,7 @@ class DataList extends ViewableData implements SS_List, Filterable, Sortable, Li
     public function __clone()
     {
         $this->dataQuery = clone $this->dataQuery;
+        $this->queryResult = null;
     }
 
     /**
@@ -134,6 +143,8 @@ class DataList extends ViewableData implements SS_List, Filterable, Sortable, Li
      */
     public function alterDataQuery($callback)
     {
+        $this->queryResult = null;
+
         if ($this->inAlterDataQueryCall) {
             $list = $this;
 
@@ -819,9 +830,35 @@ class DataList extends ViewableData implements SS_List, Filterable, Sortable, Li
      */
     public function getIterator()
     {
-        foreach ($this->dataQuery->query()->execute() as $row) {
+        foreach ($this->cachedQuery() as $row) {
             yield $this->createDataObject($row);
         }
+    }
+
+    /**
+     * Returns the number of rows in this result
+     *
+     * @return int
+     */
+    public function getIteratorCount()
+    {
+        return $this->cachedQuery()->numRecords();
+    }
+
+    /**
+     * Returns the Query result for this DataList. Repeated calls will return
+     * a cached result, unless the DataQuery underlying this list has been
+     * modified
+     *
+     * @return Query
+     */
+    protected function cachedQuery()
+    {
+        if (!$this->queryResult) {
+            $this->queryResult = $this->dataQuery->query()->execute();
+        }
+
+        return $this->queryResult;
     }
 
     /**
@@ -831,6 +868,11 @@ class DataList extends ViewableData implements SS_List, Filterable, Sortable, Li
      */
     public function count()
     {
+        // If we've already run the query, we've no need to run it again
+        if ($this->queryResult) {
+            return $this->queryResult->numRecords();
+        }
+
         return $this->dataQuery->count();
     }
 
@@ -970,6 +1012,11 @@ class DataList extends ViewableData implements SS_List, Filterable, Sortable, Li
      */
     public function column($colName = "ID")
     {
+         // If we've already run the query, we've no need to run it again
+        if ($this->queryResult) {
+            return $this->queryResult->column($colName);
+        }
+
         return $this->dataQuery->column($colName);
     }
 

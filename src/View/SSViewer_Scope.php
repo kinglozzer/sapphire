@@ -3,6 +3,7 @@
 namespace SilverStripe\View;
 
 use ArrayIterator;
+use Countable;
 use Iterator;
 
 /**
@@ -198,22 +199,22 @@ class SSViewer_Scope
         }
 
         if (!$this->itemIterator) {
-            // Turn the iterator into an array. This lets us get the count and iterate on it, even if it's a generator.
-            if (is_array($this->item)) {
-                $arrayVersion = $this->item;
+            $this->itemIterator = is_array($this->item) ? new ArrayIterator($this->item) : $this->item->getIterator();
+
+            if ($this->item instanceof CountableIterator) {
+                $this->itemIteratorTotal = $this->item->getIteratorCount();
+            } elseif ($this->item instanceof Countable) {
+                // We can delegate counting to the item itself
+                $this->itemIteratorTotal = count($this->item);
             } else {
-                $arrayVersion = [];
-                foreach ($this->item as $record) {
-                    $arrayVersion[] = $record;
-                }
+                // If the item isn't countable, we have to fetch the count of
+                // the iterator and then rewind it
+                $this->itemIteratorTotal = iterator_count($this->itemIterator);
+                $this->itemIterator->rewind();
             }
 
-            $this->itemIterator = new ArrayIterator($arrayVersion);
-
             $this->itemStack[$this->localIndex][SSViewer_Scope::ITEM_ITERATOR] = $this->itemIterator;
-            $this->itemIteratorTotal = count($arrayVersion); //count the total number of items
             $this->itemStack[$this->localIndex][SSViewer_Scope::ITEM_ITERATOR_TOTAL] = $this->itemIteratorTotal;
-            $this->itemIterator->rewind();
         } else {
             $this->itemIterator->next();
         }
