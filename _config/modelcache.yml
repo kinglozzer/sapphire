@@ -1,0 +1,8 @@
+---
+Name: modelcache
+---
+SilverStripe\Core\Injector\Injector:
+  Psr\SimpleCache\CacheInterface.DataObjectSchema:
+    factory: SilverStripe\Core\Cache\CacheFactory
+    constructor:
+      namespace: "DataObjectSchema"

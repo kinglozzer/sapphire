@@ -122,6 +122,9 @@ class DatabaseAdmin extends Controller
         // The default time limit of 30 seconds is normally not enough
         Environment::increaseTimeLimitTo(600);
 
+        // Flush the schema cache
+        DataObjectSchema::flush();
+
         // If this code is being run outside of a dev/build or without a ?flush query string param,
         // the class manifest hasn't been flushed, so do it here
         $request = $this->getRequest();

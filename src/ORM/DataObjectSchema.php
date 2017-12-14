@@ -5,9 +5,11 @@ namespace SilverStripe\ORM;
 use Exception;
 use InvalidArgumentException;
 use LogicException;
+use Psr\SimpleCache\CacheInterface;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Config\Configurable;
+use SilverStripe\Core\Flushable;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\TestOnly;
@@ -18,7 +20,7 @@ use SilverStripe\ORM\FieldType\DBField;
 /**
  * Provides dataobject and database schema mapping functionality
  */
-class DataObjectSchema
+class DataObjectSchema implements Flushable
 {
     use Injectable;
     use Configurable;
@@ -66,6 +68,64 @@ class DataObjectSchema
      * @var array
      */
     protected $tableNames = [];
+
+    /**
+     * @var CacheInterface
+     */
+    private $cache;
+
+    /**
+     * @return CacheInterface
+     */
+    public function getCache()
+    {
+        if (!$this->cache) {
+            $this->setCache(Injector::inst()->get(CacheInterface::class . '.DataObjectSchema'));
+        }
+        return $this->cache;
+    }
+
+    /**
+     * @param CacheInterface $cache
+     * @return $this
+     */
+    public function setCache($cache)
+    {
+        $this->cache = $cache;
+        return $this;
+    }
+
+    /**
+     * Attempt to load schema data from the cache
+     */
+    public function __construct()
+    {
+        $schema = $this->getCache()->get('schema');
+        if ($schema) {
+            list(
+                $this->tableNames,
+                $this->databaseFields,
+                $this->databaseIndexes,
+                $this->defaultDatabaseIndexes,
+                $this->compositeFields
+            ) = $schema;
+        }
+    }
+
+    /**
+     * Save schema data in the cache
+     */
+    public function __destruct()
+    {
+        $cache = $this->getCache();
+        $cache->set('schema', [
+            $this->tableNames,
+            $this->databaseFields,
+            $this->databaseIndexes,
+            $this->defaultDatabaseIndexes,
+            $this->compositeFields
+        ]);
+    }
 
     /**
      * Clear cached table names
@@ -1133,5 +1193,12 @@ class DataObjectSchema
                 . " which is not a subclass of " . DataObject::class
             );
         }
+    }
+
+    public static function flush()
+    {
+        /** @var CacheInterface $cache */
+        $cache = Injector::inst()->get(CacheInterface::class . '.DataObjectSchema');
+        $cache->clear();
     }
 }
