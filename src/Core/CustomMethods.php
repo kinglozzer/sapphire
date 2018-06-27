@@ -113,6 +113,8 @@ trait CustomMethods
      */
     protected function defineMethods()
     {
+        self::$extra_methods[static::class] = [];
+
         // Define from all registered callbacks
         foreach ($this->extra_method_registers as $callback) {
             call_user_func($callback);
