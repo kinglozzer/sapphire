@@ -1055,7 +1055,7 @@ class Injector implements ContainerInterface
      */
     public function getServiceSpec($name, $inherit = true)
     {
-        if (isset($this->specs[$name])) {
+        if (array_key_exists($name, $this->specs)) {
             return $this->specs[$name];
         }
 
@@ -1070,7 +1070,8 @@ class Injector implements ContainerInterface
 
         // Fail over to parent service if allowed
         if (!$inherit || !strpos($name, '.')) {
-            return null;
+            $this->specs[$name] = null;
+            return $this->specs[$name];
         }
 
         return $this->getServiceSpec(substr($name, 0, strrpos($name, '.')));
