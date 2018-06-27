@@ -15,6 +15,7 @@ use SilverStripe\Core\Tests\Injector\InjectorTest\CircularTwo;
 use SilverStripe\Core\Tests\Injector\InjectorTest\ConstructableObject;
 use SilverStripe\Core\Tests\Injector\InjectorTest\DummyRequirements;
 use SilverStripe\Core\Tests\Injector\InjectorTest\EmptyFactory;
+use SilverStripe\Core\Tests\Injector\InjectorTest\MaybeSingletonObject;
 use SilverStripe\Core\Tests\Injector\InjectorTest\MyChildClass;
 use SilverStripe\Core\Tests\Injector\InjectorTest\MyParentClass;
 use SilverStripe\Core\Tests\Injector\InjectorTest\NeedsBothCirculars;
@@ -1046,5 +1047,23 @@ class InjectorTest extends SapphireTest
         // Return to nestingLevel 0
         Injector::unnest();
         $this->nestingLevel--;
+    }
+
+    /**
+     * @expectedException \Exception
+     * @expectedExceptionMessage Is singleton
+     */
+    public function testIsConstructingSingletonFlag()
+    {
+        Injector::inst()->get(MaybeSingletonObject::class, true);
+    }
+
+    /**
+     * @expectedException \Exception
+     * @expectedExceptionMessage Is not singleton
+     */
+    public function testIsConstructingNonSingletonFlag()
+    {
+        Injector::inst()->get(MaybeSingletonObject::class, false);
     }
 }

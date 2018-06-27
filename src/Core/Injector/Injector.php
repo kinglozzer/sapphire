@@ -195,6 +195,13 @@ class Injector implements ContainerInterface
     protected $configLocator;
 
     /**
+     * Flag to indicate whether the object that's currently being constructed is a singleton
+     *
+     * @var bool
+     */
+    private $constructingSingleton = false;
+
+    /**
      * Specify a service type singleton
      */
     const SINGLETON = 'singleton';
@@ -581,8 +588,20 @@ class Injector implements ContainerInterface
             $constructorParams = $spec['constructor'];
         }
 
+        if (!$type) {
+            $type = isset($spec['type']) ? $spec['type'] : null;
+        }
+
+        // Set a flag to let constructed objects know whether or not the new instance will be a singleton
+        // Some objects, like DataObject, can be either a prototype or singleton
+        if ($type === self::SINGLETON) {
+            $this->constructingSingleton = true;
+        }
+
         $factory = isset($spec['factory']) ? $this->get($spec['factory']) : $this->getObjectCreator();
         $object = $factory->create($class, $constructorParams);
+
+        $this->constructingSingleton = false;
 
         // Handle empty factory responses
         if (!$object) {
@@ -597,10 +616,6 @@ class Injector implements ContainerInterface
 
         // now set the service in place if needbe. This is NOT done for prototype beans, as they're
         // created anew each time
-        if (!$type) {
-            $type = isset($spec['type']) ? $spec['type'] : null;
-        }
-
         if ($id && (!$type || $type !== self::PROTOTYPE)) {
             // this ABSOLUTELY must be set before the object is injected.
             // This prevents circular reference errors down the line
@@ -1075,6 +1090,17 @@ class Injector implements ContainerInterface
         }
 
         return $this->getServiceSpec(substr($name, 0, strrpos($name, '.')));
+    }
+
+    /**
+     * Allows objects, during their __construct() implementation, to check whether Injector
+     * is currently constructing the object as a singleton
+     * 
+     * @return bool
+     */
+    public function isConstructingSingleton()
+    {
+        return $this->constructingSingleton;
     }
 
     /**

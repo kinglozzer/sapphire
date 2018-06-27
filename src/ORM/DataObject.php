@@ -381,6 +381,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
         $this->original = $this->record;
 
         // Must be called after parent constructor
+        $isSingleton = $isSingleton || Injector::inst()->isConstructingSingleton();
         if (!$isSingleton && (!isset($this->record['ID']) || !$this->record['ID'])) {
             $this->populateDefaults();
         }
@@ -1272,6 +1273,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
                     if (!isset($this->$fieldName) || $this->$fieldName === null) {
                         $this->$fieldName = $fieldValue;
                     }
+
                     // Set many-many defaults with an array of ids
                     if (is_array($fieldValue) && $this->getSchema()->manyManyComponent(static::class, $fieldName)) {
                         /** @var ManyManyList $manyManyJoin */
