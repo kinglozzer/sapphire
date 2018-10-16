@@ -1072,6 +1072,22 @@ class DataList extends ViewableData implements SS_List, Filterable, Sortable, Li
         return $relation;
     }
 
+    /**
+     * Remember the result of this query. TTL can be an integer representing seconds
+     * until the result has expired, a DateInterval instance or null to indicate that
+     * the result should be stored in-memory for the lifetime of the current request.
+     * Passing false will disable result caching
+     *
+     * @param boolean|null|int|\DateInterval $ttl
+     * @return static
+     */
+    public function remember($ttl = null)
+    {
+        return $this->alterDataQuery(function (DataQuery $query) use ($ttl) {
+            $query->remember($ttl);
+        });
+    }
+
     public function dbObject($fieldName)
     {
         return singleton($this->dataClass)->dbObject($fieldName);

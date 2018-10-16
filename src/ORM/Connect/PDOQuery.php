@@ -53,4 +53,9 @@ class PDOQuery extends Query
             return false;
         }
     }
+
+    public function __sleep()
+    {
+        return ['results', 'rowNum', 'currentRecord', 'queryHasBegun'];
+    }
 }

@@ -36,3 +36,9 @@ SilverStripe\Core\Injector\Injector:
     factory: SilverStripe\Core\Cache\CacheFactory
     constructor:
       namespace: 'ThemeResourceLoader'
+  Psr\SimpleCache\CacheInterface.SQLSelectRememberCache:
+    factory: SilverStripe\Core\Cache\CacheFactory
+    constructor:
+      namespace: 'SQLSelectRememberCache'
+  Psr\SimpleCache\CacheInterface.SQLSelectRequestCache:
+    factory: SilverStripe\Core\Cache\ArrayCacheFactory

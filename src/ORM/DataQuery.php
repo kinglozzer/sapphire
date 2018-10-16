@@ -1189,6 +1189,19 @@ class DataQuery
         $this->query->selectField($fieldExpression, $alias);
     }
 
+    /**
+     * Remember the result of this query. TTL can be an integer representing seconds
+     * until the result has expired, a DateInterval instance or null to indicate that
+     * the result should be stored in-memory for the lifetime of the current request.
+     * Passing false will disable result caching
+     *
+     * @param boolean|null|int|\DateInterval $ttl
+     */
+    public function remember($ttl = null)
+    {
+        $this->query->remember($ttl);
+    }
+
     //// QUERY PARAMS
 
     /**

@@ -2,8 +2,10 @@
 
 namespace SilverStripe\ORM\Queries;
 
+use Psr\SimpleCache\CacheInterface;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\Deprecation;
+use SilverStripe\ORM\Connect\Query;
 use SilverStripe\ORM\DB;
 use InvalidArgumentException;
 
@@ -13,7 +15,6 @@ use InvalidArgumentException;
  */
 class SQLSelect extends SQLConditionalExpression
 {
-
     /**
      * An array of SELECT fields, keyed by an optional alias.
      *
@@ -62,6 +63,23 @@ class SQLSelect extends SQLConditionalExpression
      * @var array
      */
     protected $limit = array();
+
+    /**
+     * Flag indicating whether result caching should be enabled for this query
+     *
+     * @var bool
+     */
+    protected $remember = false;
+
+    /**
+     * Value representing how long the result of this query should be cached for. Value
+     * may be false to represent no caching, null to represent caching for the lifetime
+     * of the current request, or an integer (seconds) or DateInterval instance to
+     * represent a specific TTL value
+     *
+     * @var null|int|\DateInterval
+     */
+    protected $rememberTtl;
 
     /**
      * Construct a new SQLSelect.
@@ -551,6 +569,15 @@ class SQLSelect extends SQLConditionalExpression
     }
 
     /**
+     * @param boolean|null|int|\DateInterval $ttl
+     */
+    public function remember($ttl = null)
+    {
+        $this->remember = ($ttl !== false);
+        $this->rememberTtl = $ttl === true ? null : $ttl; // Treat undocumented "true" as equivalent to "null"
+    }
+
+    /**
      * Return an itemised select list as a map, where keys are the aliases, and values are the column sources.
      * Aliases will always be provided (if the alias is implicit, the alias value will be inferred), and won't be
      * quoted.
@@ -564,6 +591,35 @@ class SQLSelect extends SQLConditionalExpression
     }
 
     /// VARIOUS TRANSFORMATIONS BELOW
+
+    public function execute()
+    {
+        if ($this->remember) {
+            return $this->executeCached();
+        }
+
+        return parent::execute();
+    }
+
+    /**
+     * @return Query
+     */
+    protected function executeCached()
+    {
+        $sql = $this->sql($parameters);
+
+        // 'null' ttl indicates caching for lifetime of current request
+        $cacheType = ($this->rememberTtl === null) ? 'SQLSelectRequestCache' : 'SQLSelectRememberCache';
+        $cache = Injector::inst()->get(CacheInterface::class . '.' . $cacheType);
+
+        $key = md5($sql . serialize($parameters));
+        if (!$cache->has($key)) {
+            $result = DB::prepared_query($sql, $parameters);
+            $cache->set($key, $result, $this->rememberTtl);
+        }
+
+        return $cache->get($key);
+    }
 
     /**
      * Return the number of rows in this query if the limit were removed.  Useful in paged data sets.

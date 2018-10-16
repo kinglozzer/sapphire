@@ -5,6 +5,8 @@ namespace SilverStripe\ORM\Tests;
 use SilverStripe\ORM\DB;
 use SilverStripe\ORM\Connect\MySQLDatabase;
 use SilverStripe\ORM\Queries\SQLSelect;
+use SilverStripe\ORM\Queries\SQLUpdate;
+use SilverStripe\ORM\Tests\SQLSelectTest\TestObject;
 use SilverStripe\SQLite\SQLite3Database;
 use SilverStripe\PostgreSQL\PostgreSQLDatabase;
 use SilverStripe\Dev\Deprecation;
@@ -822,5 +824,64 @@ class SQLSelectTest extends SapphireTest
         );
         $this->assertEquals(array('%MyName%', '2012-08-08 12:00'), $parameters);
         $query->execute();
+    }
+
+    public function testInMemoryQueryCaching()
+    {
+        $fixture = $this->objFromFixture(TestObject::class, 'test1');
+
+        // Warm the cache and store the result
+        $query = new SQLSelect();
+        $query->setSelect(['"SQLSelectTest_DO"."Name"']);
+        $query->setFrom('"SQLSelectTest_DO"');
+        $query->setWhere(['"SQLSelectTest_DO"."Meta" = ?' => $fixture->Meta]);
+        $query->remember();
+        $before = $query->execute()->first();
+
+        // Update the database record
+        $update = new SQLUpdate();
+        $update->setTable('"SQLSelectTest_DO"');
+        $update->setAssignments(['Name' => 'Something Different']);
+        $update->setWhere(['"SQLSelectTest_DO"."Meta" = ?' => $fixture->Meta]);
+        $update->execute();
+
+        // Re-run the original select query
+        $after = $query->execute()->first();
+
+        $this->assertEquals($before['Name'], $after['Name'], 'Query did not use cached result');
+    }
+
+    public function testTtlQueryCaching()
+    {
+        $ttl = 2; // 2 seconds
+        $fixture = $this->objFromFixture(TestObject::class, 'test1');
+
+        // Warm the cache and store the result
+        $query = new SQLSelect();
+        $query->setSelect(['"SQLSelectTest_DO"."Name"']);
+        $query->setFrom('"SQLSelectTest_DO"');
+        $query->setWhere(['"SQLSelectTest_DO"."Meta" = ?' => $fixture->Meta]);
+        $query->remember($ttl);
+        $before = $query->execute()->first();
+
+        // Update the database record
+        $update = new SQLUpdate();
+        $update->setTable('"SQLSelectTest_DO"');
+        $update->setAssignments(['Name' => 'Something Different']);
+        $update->setWhere(['"SQLSelectTest_DO"."Meta" = ?' => $fixture->Meta]);
+        $update->execute();
+
+        // Re-run the original select query
+        $after = $query->execute()->first();
+
+        $this->assertEquals($before['Name'], $after['Name'], 'Query did not use cached result');
+
+        sleep($ttl); // Wait until cached result has expired
+
+        // Re-run the original select query again
+        $after = $query->execute()->first();
+
+        $this->assertNotEquals($before['Name'], $after['Name'], 'Query returned cached result which should have expired');
+        $this->assertEquals('Something Different', $after['Name'], 'Query returned cached result which should have expired');
     }
 }
